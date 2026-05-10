@@ -1,0 +1,13 @@
+{
+  "name": "ftd2xx-probe",
+  "version": "1.0.0",
+  "description": "FTDI D2XX probe utility using koffi",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "koffi": "^2.9.0"
+  }
+}
