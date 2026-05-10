@@ -136,6 +136,8 @@ Architecture must match:
 ## FTDI Driver
 
 The FTDI D2XX driver stack must already be installed.
+Download D2XX driver package from FTDI and place ftd2xx.dll beside index.js
+https://ftdichip.com/drivers/d2xx-drivers/
 
 This project does **not** install drivers.
 
