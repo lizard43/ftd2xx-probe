@@ -68,7 +68,7 @@ This utility validates:
 
 It is especially useful when building:
 
-- fake CANUSB dongles
+- CANUSB dongles
 - Lawicel emulators
 - FTDI-based CAN bridges
 - reverse engineering tools
@@ -382,7 +382,7 @@ Reason:
 
 ---
 
-# Fake Dongle Development Workflow
+# Compatible Dongle Development Workflow
 
 Recommended progression:
 
@@ -403,7 +403,7 @@ This project was built to support:
 
 - Lawicel CANUSB emulation
 - FTDI USB reverse engineering
-- fake hardware validation
+- hardware validation
 - proprietary automotive tooling analysis
 - CAN bridge development
 
@@ -508,7 +508,7 @@ Useful resources:
 
 # Why These Resources Matter
 
-For reverse engineering, fake dongle development, and compatibility testing, these resources collectively define:
+For reverse engineering, dongle development, and compatibility testing, these resources collectively define:
 
 ```text
 ASCII protocol
@@ -563,7 +563,7 @@ These tend to produce more technical implementation details and source code refe
 
 # Particularly Valuable References
 
-For fake dongle and interoperability development, the most useful materials are typically:
+For dongle and interoperability development, the most useful materials are typically:
 
 1. CAN232 protocol PDF
 2. Linux `slcan.c` driver source
