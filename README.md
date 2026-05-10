@@ -15,15 +15,9 @@ Application
 
 Unlike simple COM-port terminal testing, this project exercises the **D2XX driver path** directly.
 
----
-
-# Architecture
-
 ![Driver Architecture](./images/driverdiagram.jpg)
 
 ---
-
-# Why This Exists
 
 Many CANUSB-compatible applications do **not** talk to COM ports directly.
 
@@ -582,8 +576,16 @@ These collectively provide:
 
 ---
 
-# License
+# MIT License
 
 Reverse engineering / interoperability / educational use.
 
-No affiliation with FTDI, Lawicel, PEAK, or CANUSB vendors.
+No affiliation with FTDI, Lawicel, PEAK or CANUSB vendors.
+
+## Disclaimer
+
+This project is an independent interoperability and testing utility.
+
+All trademarks belong to their respective owners.
+
+Users are responsible for obtaining vendor drivers and SDK components from official sources.
