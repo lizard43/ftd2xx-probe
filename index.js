@@ -1,22 +1,39 @@
 // index.js
-// D2XX + Lawicel CANUSB probe for NEOS-style CANUSB path.
-// Mirrors app behavior:
-//   canusb_getFirstAdapter()
-//   canusb_Open(adapterName, "500", ...)
-//   canusb_SetTimeouts(handle, 10, 10)
-// Then tests Lawicel commands through FT_Write/FT_Read.
+// Cross-platform FTDI D2XX + Lawicel CANUSB probe.
+//
+// Purpose:
+//   Exercise the FTDI D2XX byte-stream path used by CANUSB/Lawicel-style
+//   adapters, then send simple Lawicel ASCII commands through FT_Write/FT_Read.
+//
+// Supported platforms:
+//   Windows: loads ftd2xx.dll
+//   Linux:   loads libftd2xx.so
+//   macOS:   loads libftd2xx.dylib, best-effort only
 //
 // Usage:
 //   node index.js
 //   node index.js --cmd V
 //   node index.js --cmd N
 //   node index.js --tx 231 8 EB90010C0413101F
+//   node index.js --index 1
+//   node index.js --ft-baud 115200
+//   node index.js --verbose-lib-load
 //
-// Requires:
+// Requirements:
 //   npm install koffi
-//   ftd2xx.dll beside this file
+//
+//   Windows:
+//     Put ftd2xx.dll beside this file, or install it where Windows can find it.
+//
+//   Linux:
+//     Put libftd2xx.so beside this file, or install it where ld.so can find it.
+//     If the kernel VCP driver grabs the adapter first, D2XX enumeration may fail.
+//     For testing, you may need:
+//       sudo rmmod ftdi_sio
+//       sudo rmmod usbserial
 
 const koffi = require("koffi");
+const path = require("path");
 
 const FT_OK = 0;
 
@@ -43,13 +60,19 @@ const statusNames = {
   19: "FT_DEVICE_LIST_NOT_READY"
 };
 
+const FT_BITS_8 = 8;
+const FT_STOP_BITS_1 = 0;
+const FT_PARITY_NONE = 0;
+const FT_PURGE_RX = 1;
+const FT_PURGE_TX = 2;
+
 function statusText(code) {
   return `${code} ${statusNames[code] || "UNKNOWN"}`;
 }
 
-function die(msg) {
+function die(msg, code = 1) {
   console.error(msg);
-  process.exit(1);
+  process.exit(code);
 }
 
 function sleep(ms) {
@@ -66,7 +89,8 @@ function parseArgs() {
     cmd: null,
     tx: null,
     index: 0,
-    ftBaud: null
+    ftBaud: null,
+    verboseLibLoad: false
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -75,6 +99,7 @@ function parseArgs() {
     if (a === "--index") out.index = Number(args[++i]);
     else if (a === "--ft-baud") out.ftBaud = Number(args[++i]);
     else if (a === "--cmd") out.cmd = args[++i];
+    else if (a === "--verbose-lib-load") out.verboseLibLoad = true;
     else if (a === "--tx") {
       out.tx = {
         id: args[++i],
@@ -91,7 +116,93 @@ function parseArgs() {
 
 const opt = parseArgs();
 
-const ftdi = koffi.load("./ftd2xx.dll");
+function platformName() {
+  if (process.platform === "win32") return "Windows";
+  if (process.platform === "linux") return "Linux";
+  if (process.platform === "darwin") return "macOS";
+  return process.platform;
+}
+
+function d2xxCandidates() {
+  if (process.platform === "win32") {
+    return [
+      { label: "local", value: path.join(__dirname, "ftd2xx.dll") },
+      { label: "system", value: "ftd2xx.dll" }
+    ];
+  }
+
+  if (process.platform === "linux") {
+    return [
+      { label: "local", value: path.join(__dirname, "libftd2xx.so") },
+      { label: "system", value: "libftd2xx.so" }
+    ];
+  }
+
+  if (process.platform === "darwin") {
+    return [
+      { label: "local", value: path.join(__dirname, "libftd2xx.dylib") },
+      { label: "system", value: "libftd2xx.dylib" }
+    ];
+  }
+
+  return [];
+}
+
+function loadD2XX() {
+  const candidates = d2xxCandidates();
+  const errors = [];
+
+  if (candidates.length === 0) {
+    die(`Unsupported platform for this probe: ${process.platform}`);
+  }
+
+  for (const candidate of candidates) {
+    try {
+      if (opt.verboseLibLoad) {
+        console.log(`Trying D2XX library (${candidate.label}): ${candidate.value}`);
+      }
+      const lib = koffi.load(candidate.value);
+      console.log(`Loaded D2XX library: ${candidate.value}`);
+      return lib;
+    } catch (err) {
+      errors.push({ candidate, message: err.message || String(err) });
+    }
+  }
+
+  console.error("D2XX library not found or could not be loaded.");
+  console.error("");
+  console.error(`Platform: ${platformName()} (${process.platform}, ${process.arch})`);
+  console.error("Tried:");
+  for (const e of errors) {
+    console.error(`  - ${e.candidate.value}`);
+    if (opt.verboseLibLoad) {
+      console.error(`    ${e.message}`);
+    }
+  }
+  console.error("");
+
+  if (process.platform === "win32") {
+    console.error("Fix:");
+    console.error("  Put ftd2xx.dll beside index.js, or install the FTDI D2XX driver package.");
+    console.error("  Make sure Node.js and ftd2xx.dll are both x64 or both x86.");
+  } else if (process.platform === "linux") {
+    console.error("Fix:");
+    console.error("  Put libftd2xx.so beside index.js, or install it in your system library path.");
+    console.error("  If installed system-wide, you may need to run sudo ldconfig.");
+    console.error("  If the adapter is grabbed by the kernel VCP driver, try:");
+    console.error("    sudo rmmod ftdi_sio");
+    console.error("    sudo rmmod usbserial");
+  } else if (process.platform === "darwin") {
+    console.error("Fix:");
+    console.error("  Put libftd2xx.dylib beside index.js, or install the FTDI D2XX package for macOS.");
+  }
+
+  console.error("");
+  console.error("Use --verbose-lib-load to show individual loader errors.");
+  process.exit(1);
+}
+
+const ftdi = loadD2XX();
 
 const FT_CreateDeviceInfoList = ftdi.func("uint FT_CreateDeviceInfoList(uint32_t* numDevs)");
 const FT_Open = ftdi.func("uint FT_Open(int deviceNumber, void** handle)");
@@ -102,12 +213,6 @@ const FT_SetTimeouts = ftdi.func("uint FT_SetTimeouts(void* handle, uint32_t rea
 const FT_Purge = ftdi.func("uint FT_Purge(void* handle, uint32_t mask)");
 const FT_Write = ftdi.func("uint FT_Write(void* handle, void* buffer, uint32_t bytesToWrite, uint32_t* bytesWritten)");
 const FT_Read = ftdi.func("uint FT_Read(void* handle, void* buffer, uint32_t bytesToRead, uint32_t* bytesReturned)");
-
-const FT_BITS_8 = 8;
-const FT_STOP_BITS_1 = 0;
-const FT_PARITY_NONE = 0;
-const FT_PURGE_RX = 1;
-const FT_PURGE_TX = 2;
 
 function check(label, status) {
   console.log(`${label}: ${statusText(status)}`);
@@ -182,7 +287,8 @@ function makeLawicelTx(idText, len, dataHex) {
 
 async function main() {
   console.log("D2XX Lawicel CANUSB probe");
-  console.log("Target app behavior: canusb_Open(adapter, \"500\", 0, 0xFFFFFFFF, 1)");
+  console.log(`Platform: ${platformName()} (${process.platform}, ${process.arch})`);
+  console.log("Target behavior: D2XX open, configure timeouts, then Lawicel ASCII over FT_Write/FT_Read");
   console.log("Lawicel CAN bitrate command for 500k: S6");
 
   const numDevs = [0];
@@ -194,6 +300,28 @@ async function main() {
 
   if (numDevs[0] < 1) {
     console.log("No FTDI/D2XX-visible devices found.");
+    if (process.platform === "linux") {
+      console.log("");
+      console.log("Linux notes:");
+      console.log("  First confirm the USB device is actually FTDI-based:");
+      console.log("    lsusb | grep -i -E '0403|ftdi'");
+      console.log("");
+      console.log("  FTDI VID is usually 0403. Common PIDs include:");
+      console.log("    0403:6001  FT232R / FT232BM");
+      console.log("    0403:6010  FT2232");
+      console.log("    0403:6011  FT4232");
+      console.log("    0403:6014  FT232H");
+      console.log("    0403:6015  FT-X series");
+      console.log("");
+      console.log("  If no 0403 device appears, this is not a D2XX visibility problem.");
+      console.log("  It means no FTDI-compatible USB device is currently attached.");
+      console.log("");
+      console.log("  If a 0403 device appears but D2XX still sees zero devices, then check:");
+      console.log("    lsmod | grep -E 'ftdi_sio|usbserial'");
+      console.log("    sudo rmmod ftdi_sio");
+      console.log("    sudo rmmod usbserial");
+      console.log("    sudo node index.js");
+    }
     return;
   }
 
@@ -205,9 +333,8 @@ async function main() {
   console.log(`Handle: ${handle[0]}`);
 
   try {
-    // This is FTDI UART transport baud, NOT CAN bitrate.
-    // Leave unset by default so we do not confuse it with CAN 500k.
-    // Use --ft-baud only if your fake dongle firmware expects a specific UART baud.
+    // FT_SetBaudRate configures the FTDI transport side, not CAN bitrate.
+    // CAN bitrate is selected by the Lawicel command, for example S6 for 500k.
     if (opt.ftBaud) {
       check(`FT_SetBaudRate(${opt.ftBaud})`, FT_SetBaudRate(handle[0], opt.ftBaud));
     } else {
@@ -215,10 +342,7 @@ async function main() {
     }
 
     check("FT_SetDataCharacteristics(8N1)", FT_SetDataCharacteristics(handle[0], FT_BITS_8, FT_STOP_BITS_1, FT_PARITY_NONE));
-
-    // Matches CanSetting.cs: transmitTimeoutTime=10, receiveTimeoutTime=10.
     check("FT_SetTimeouts(10,10)", FT_SetTimeouts(handle[0], 10, 10));
-
     check("FT_Purge(RX|TX)", FT_Purge(handle[0], FT_PURGE_RX | FT_PURGE_TX));
 
     if (opt.cmd) {
@@ -226,7 +350,6 @@ async function main() {
       return;
     }
 
-    // Basic CANUSB/Lawicel init sequence for 500k CAN.
     await lawicelCommand(handle[0], "V", "version");
     await lawicelCommand(handle[0], "N", "serial");
     await lawicelCommand(handle[0], "C", "close CAN");

@@ -1,2 +1,4 @@
 node_modules/
 ftd2xx.dll
+libftd2xx.so
+libftd2xx-linux-*.tgz
