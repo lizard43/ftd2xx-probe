@@ -2,7 +2,7 @@
 
 A cross-platform Node.js FTDI D2XX + Lawicel test utility for reverse engineering, validating, and emulating CANUSB-compatible USB CAN dongles.
 
-This project exists to validate the real software path used by applications that communicate through FTDI D2XX rather than a normal COM port.
+This project exists to validate the real software path used by applications that communicate through FTDI D2XX rather than a VCP (Virtual COM Port).
 
 On Windows, the production-style path is usually:
 
@@ -25,7 +25,7 @@ node index.js
           -> CAN controller
 ```
 
-Unlike simple COM-port terminal testing, this project exercises the D2XX driver path directly.
+This project exercises the D2XX driver path directly.
 
 ![Driver Architecture](./images/driverdiagram.jpg)
 
@@ -33,7 +33,7 @@ Unlike simple COM-port terminal testing, this project exercises the D2XX driver 
 
 ## Why This Exists
 
-Many CANUSB-compatible Windows applications do not talk to COM ports directly.
+Many CANUSB-compatible applications do not talk to COM ports directly.
 
 Instead, they:
 
