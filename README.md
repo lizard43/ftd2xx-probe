@@ -13,8 +13,7 @@ Application
        -> FTDI USB device
           -> Lawicel firmware
              -> CAN controller
-
-This project exercises the D2XX driver path directly.
+```
 
 ![Driver Architecture](./images/driverdiagram.jpg)
 
