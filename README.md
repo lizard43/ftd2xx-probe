@@ -13,7 +13,12 @@ Application
        -> FTDI USB device
           -> Lawicel firmware
              -> CAN controller
-```
+
+This project exercises the D2XX driver path directly.
+
+![Driver Architecture](./images/driverdiagram.jpg)
+
+---
 
 On Linux, this probe uses the equivalent FTDI D2XX shared library:
 
@@ -24,14 +29,7 @@ node index.js
        -> Lawicel firmware
           -> CAN controller
 ```
-
-This project exercises the D2XX driver path directly.
-
-![Driver Architecture](./images/driverdiagram.jpg)
-
----
-
-## Why This Exists
+## Why
 
 Many CANUSB-compatible applications do not talk to COM ports directly.
 
@@ -565,6 +563,117 @@ This project was built to support:
 - CAN bridge development
 
 The utility intentionally exposes low-level D2XX behavior rather than abstracting it away.
+
+---
+
+
+### More About VCP (Virtual COM Port)
+
+FTDI devices are somewhat unusual because they commonly support *two completely different software access models*:
+
+1. VCP (Virtual COM Port)
+2. D2XX direct-driver access
+
+In VCP mode, the operating system exposes the FTDI device as a normal serial port and Applications then communicate using ordinary serial APIs.
+
+![Driver Architecture](./images/driverdiagram.jpg)
+
+Windows:
+
+```text
+COM3
+COM7
+COM12
+```
+
+Linux:
+
+```text
+/dev/ttyUSB0
+/dev/ttyUSB1
+```
+
+Typical VCP stack:
+
+```text
+Application
+ -> COM7 / /dev/ttyUSB0
+    -> FTDI VCP driver
+       -> FTDI USB device
+```
+
+This is the path used by:
+
+- PuTTY
+- TeraTerm
+- pyserial
+- `screen`
+- Arduino IDE serial monitor
+- most generic terminal programs
+
+By contrast, many CANUSB-compatible applications bypass the COM-port layer entirely and instead use FTDI's proprietary D2XX APIs:
+
+```text
+Application
+ -> canusbdrv.dll
+    -> ftd2xx.dll / libftd2xx.so
+       -> FTDI USB device
+```
+
+That distinction is extremely important when reverse engineering or emulating CANUSB adapters.
+
+A device may:
+
+- enumerate correctly as a COM port
+- respond perfectly in PuTTY
+- pass loopback serial tests
+- still fail completely in the real target application
+
+because the application may never touch the COM-port stack at all.
+
+Instead, it may require successful operation of:
+
+```text
+FT_CreateDeviceInfoList()
+FT_Open()
+FT_Write()
+FT_Read()
+FT_GetDeviceInfoDetail()
+```
+
+through the D2XX driver path.
+
+This is one of the biggest sources of confusion when validating clone adapters, DIY hardware, or emulator firmware.
+
+For example:
+
+| Device Type | VCP Works | D2XX Works |
+|---|---|---|
+| Genuine FT232R | Yes | Yes |
+| FT2232H board | Yes | Yes |
+| CH340 USB serial | Yes | No |
+| CP2102 USB serial | Yes | No |
+| Generic USB CDC device | Usually | No |
+| candleLight CAN | Usually | No |
+
+On Linux specifically, another complication exists:
+
+the kernel VCP drivers (`ftdi_sio`, `usbserial`) may claim the FTDI device before D2XX can access it.
+
+Typical symptom:
+
+- `/dev/ttyUSB0` exists
+- terminal programs work
+- but `FT_CreateDeviceInfoList()` reports zero devices
+
+In those situations, temporarily unloading the VCP drivers may be necessary:
+
+```bash
+sudo rmmod ftdi_sio
+sudo rmmod usbserial
+```
+
+This utility intentionally validates the D2XX path directly rather than relying on COM-port behavior.
 
 ---
 
