@@ -225,6 +225,21 @@ node index.js --verbose-lib-load
 
 ## Running
 
+---
+
+## Lawicel Commands
+
+The utility speaks standard Lawicel ASCII.
+
+| Command | Meaning |
+|---|---|
+| `V` | firmware version |
+| `N` | serial number |
+| `C` | close CAN channel |
+| `S6` | set CAN bitrate 500k |
+| `O` | open CAN channel |
+| `t12381122334455667788` | transmit standard 11-bit CAN frame |
+
 ### Default Probe
 
 ```bash
@@ -250,7 +265,7 @@ This performs:
 
 ## Command-Line Usage
 
-### Send Arbitrary Lawicel Command
+### Send Lawicel Command
 
 ```bash
 node index.js --cmd V
@@ -315,6 +330,52 @@ This configures the FTDI UART transport layer. CAN bitrate is configured separat
 S6 = 500k CAN
 ```
 
+### Lawicel CAN Bitrate Commands
+
+Lawicel adapters configure CAN bitrate using `Sx` commands.
+
+| Command | CAN Bitrate |
+|---|---|
+| `S0` | 10 kbit/s |
+| `S1` | 20 kbit/s |
+| `S2` | 50 kbit/s |
+| `S3` | 100 kbit/s |
+| `S4` | 125 kbit/s |
+| `S5` | 250 kbit/s |
+| `S6` | 500 kbit/s |
+| `S7` | 800 kbit/s |
+| `S8` | 1 Mbit/s |
+
+Example:
+
+```text
+S6
+```
+
+sets the CAN bus bitrate to:
+
+```text
+500 kbit/s
+```
+
+Important:
+
+These commands configure the **CAN controller bitrate**, not the FTDI UART transport speed.
+
+For example:
+
+```bash
+node index.js --ft-baud 115200
+```
+
+controls the FTDI serial transport layer, while:
+
+```text
+S6
+```
+
+controls CAN bus timing.
+
 ---
 
 ## Typical Successful Output
@@ -343,22 +404,6 @@ RX ascii: "V1234\r"
 TX ascii: "N\r" / 4e 0d / wrote=2 / 0 FT_OK
 RX ascii: "N0001\r"
 ```
-
----
-
-## Lawicel Commands
-
-The utility speaks standard Lawicel ASCII.
-
-| Command | Meaning |
-|---|---|
-| `V` | firmware version |
-| `N` | serial number |
-| `C` | close CAN channel |
-| `S6` | set CAN bitrate 500k |
-| `O` | open CAN channel |
-| `t12381122334455667788` | transmit standard 11-bit CAN frame |
-
 ---
 
 ## Important Concepts
